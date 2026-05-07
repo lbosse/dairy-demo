@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Dairy Monitor",
+    "slug": "dairy-demo-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "dairydemo",
+    "platforms": ["android"],
+    "android": {
+      "package": "com.dairydemo.monitor",
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#16a34a",
+          "sounds": []
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

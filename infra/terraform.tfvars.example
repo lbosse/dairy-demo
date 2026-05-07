@@ -1,0 +1,9 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real credentials.
+
+gcp_project_id = "my-dairy-demo-12345"   # your GCP project ID
+aws_region     = "us-east-1"
+
+# Leave empty on first apply. Fill in after retrieving the key from Firebase console.
+# Firebase console → Project Settings → Cloud Messaging → Server key
+fcm_server_key = ""

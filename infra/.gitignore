@@ -1,0 +1,14 @@
+# Terraform state — contains real infrastructure IDs; keep local or use remote state
+*.tfstate
+*.tfstate.backup
+
+# Vars file contains the FCM server key — never commit
+*.tfvars
+
+# Terraform working directory
+.terraform/
+
+# Service account credentials
+*.json
+*-service-account-key.json
+credentials.json
