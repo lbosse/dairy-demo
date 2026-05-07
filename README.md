@@ -12,6 +12,7 @@ Detects cows in a video file, identifies "down cows" (laying), draws bounding bo
 dairy-demo/
 ├── cv/                   Python CV pipeline (video in → annotated video out)
 ├── backend/              Flask alert server (receives CV updates, fires SNS push)
+├── infra/                Terraform — provisions Firebase, SNS, and IAM
 └── mobile/               Expo React Native Android app (alerts + threshold slider)
 ```
 
@@ -19,11 +20,12 @@ dairy-demo/
 
 ## Prerequisites
 
-- Python 3.10+ (currently using 3.9 — works but boto3 has dropped 3.9 support; upgrade when possible)
-- Node.js 20+ — install with `brew install node`
+- Python 3.10+
+- Node.js 20+ — `brew install node`
+- Terraform — `brew install terraform`
 - An [Expo account](https://expo.dev) (free) — needed for EAS Build
-- An AWS account with SNS access
-- A Firebase project (for the FCM server key that SNS uses to deliver to Android)
+- A GCP project with billing enabled
+- AWS credentials configured locally (`aws configure` or a named profile)
 
 ---
 
@@ -36,47 +38,61 @@ pip install -r cv/requirements.txt
 pip install -r backend/requirements.txt
 ```
 
-### 2. Firebase project (provides the FCM key that Android requires)
+### 2. Infrastructure (Terraform)
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Add project**
-2. Click the **Android icon** on the project overview
-3. Package name: `com.dairydemo.monitor` (must match `app.json` exactly)
-4. Click **Register app** → download `google-services.json` → save to `mobile/google-services.json`
-5. Go to **Project Settings → Cloud Messaging** → copy the **Server key**
+Terraform provisions the Firebase project, registers the Android app, writes `mobile/google-services.json`, creates a least-privilege AWS IAM user, and sets up the SNS Platform Application.
 
-> Firebase is only used here for its FCM delivery credential. The Python backend talks to AWS SNS, not Firebase directly.
-
-### 3. AWS SNS Platform Application
-
-1. Open AWS Console → **SNS** → **Mobile** → **Push notifications** → **Create platform application**
-2. Platform: **Firebase Cloud Messaging (FCM)**
-3. Paste the Firebase **Server key** from step 2
-4. Click **Create** → copy the resulting **Platform Application ARN**
-
-### 4. Backend environment variables
+**Step 1 — Firebase + IAM + google-services.json**
 
 ```bash
-export SNS_PLATFORM_APP_ARN="arn:aws:sns:us-east-1:123456789:app/GCM/dairy-demo"
-export AWS_REGION="us-east-1"
-# Your normal AWS credentials must also be set (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
-# or an IAM role / AWS profile)
+cd infra
+cp terraform.tfvars.example terraform.tfvars
 ```
 
-### 5. Mobile app — update backend URL
+Fill in your GCP project ID in `terraform.tfvars`, then:
+
+```bash
+terraform init
+terraform apply
+```
+
+This writes `mobile/google-services.json` automatically.
+
+**Step 2 — SNS Platform Application**
+
+After step 1 completes:
+
+1. Go to [Firebase console](https://console.firebase.google.com) → **Project Settings → Cloud Messaging** → copy the **Server key**
+2. Add it to `terraform.tfvars` as `fcm_server_key = "..."`
+3. Run `terraform apply` again
+
+### 3. Backend environment variables
+
+Export the outputs from Terraform:
+
+```bash
+cd infra
+export SNS_PLATFORM_APP_ARN=$(terraform output -raw sns_platform_application_arn)
+export AWS_ACCESS_KEY_ID=$(terraform output -raw iam_access_key_id)
+export AWS_SECRET_ACCESS_KEY=$(terraform output -raw iam_secret_access_key)
+export AWS_REGION="us-east-1"
+```
+
+### 4. Mobile app — update backend URL
 
 Edit `mobile/constants/Config.ts` and replace the IP with your Mac's local IP:
 
 ```bash
-ipconfig getifaddr en0   # prints your Mac's IP, e.g. 192.168.1.47
+ipconfig getifaddr en0   # e.g. 192.168.1.47
 ```
 
 ```ts
 export const BACKEND_URL = "http://192.168.1.47:5000";
 ```
 
-Your Mac and the Android phone must be on the same WiFi network.
+Your Mac and the Android phone must be on the same network.
 
-### 6. Mobile app — Node dependencies
+### 5. Mobile app — Node dependencies
 
 ```bash
 cd mobile
@@ -152,19 +168,7 @@ python3 process_video.py input.mp4 output_annotated.mp4
 
 While processing, the script POSTs state updates to the Flask backend. When any cow exceeds the threshold, a push notification fires. When done, `output_annotated.mp4` has bounding boxes and down-timers drawn on every frame.
 
-The backend URL defaults to `http://localhost:5000`. Override with `--backend http://other-ip:5000` if running backend elsewhere.
-
----
-
-## Demo Flow (Interview)
-
-1. Open the Android app — shows empty dashboard
-2. In **Alert Settings**, set threshold to 30 seconds (demo mode)
-3. Start `python3 main.py` in one terminal
-4. Run `python3 process_video.py cow_video.mp4 output.mp4` in another
-5. Watch cow IDs and down-timers appear on the phone dashboard as the video processes
-6. When a cow exceeds 30s, the phone gets a push notification
-7. After processing, play `output.mp4` to show the annotated video
+The backend URL defaults to `http://localhost:5000`. Override with `--backend http://other-ip:5000` if running the backend elsewhere.
 
 ---
 
