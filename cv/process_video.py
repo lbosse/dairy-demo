@@ -18,26 +18,12 @@ import torch
 from ultralytics import YOLO
 
 from cow_tracker import CowTracker
+from posture_classifier import make_classifier
 
 COCO_COW_CLASS = 19
 COLOR_STANDING = (34, 197, 94)   # green
 COLOR_DOWN = (239, 68, 68)        # red
 COLOR_DOWN_ALERTED = (234, 179, 8)  # amber — already alerted, still down
-
-
-def classify_posture(xyxy) -> str:
-    """Aspect-ratio heuristic: lying cows have wider-than-tall bounding boxes.
-
-    A standing cow is roughly portrait (h > w).
-    A lying cow is roughly landscape (w > h), typically ratio > 1.4.
-    Swap this function for a Roboflow model call when one is trained on farm data.
-    """
-    x1, y1, x2, y2 = xyxy
-    w = x2 - x1
-    h = y2 - y1
-    if h <= 0:
-        return "STANDING"
-    return "DOWN" if (w / h) > 1.4 else "STANDING"
 
 
 def draw_annotation(frame, box, track_id: int, posture: str, down_sec: float, alerted: bool):
@@ -73,12 +59,15 @@ def post_cow_state(backend_url: str, cow_id: int, posture: str, down_sec: float)
         pass  # never block video processing on network latency
 
 
-def process_video(input_path: str, output_path: str, backend_url: str, fast: bool = False, preview: bool = True):
+def process_video(input_path: str, output_path: str, backend_url: str, fast: bool = False, preview: bool = True, roboflow_every: int = 5):
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device: {device}")
 
     model = YOLO("yolov8n.pt")
     model.to(device)
+
+    # Posture classifier: Roboflow if ROBOFLOW_API_KEY is in env, else aspect-ratio heuristic.
+    classifier = make_classifier(every_n_frames=roboflow_every)
 
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -113,6 +102,11 @@ def process_video(input_path: str, output_path: str, backend_url: str, fast: boo
 
         now = time.time()
 
+        # Update the posture classifier's frame cache. For Roboflow, this sends
+        # the full frame to the hosted API (every Nth frame). For the aspect
+        # ratio heuristic, this is a no-op.
+        classifier.update_frame(frame)
+
         # Run detection + ByteTrack. ByteTrack assigns each cow a stable track_id
         # that persists across frames, so per-cow down-duration in CowTracker stays
         # pinned to the right cow even as it moves around the frame. Without this,
@@ -146,8 +140,11 @@ def process_video(input_path: str, output_path: str, backend_url: str, fast: boo
 
             # One iteration per detected cow in this frame.
             for xyxy, track_id in zip(xyxys, ids):
-                # Classify this specific cow as STANDING or DOWN from its box shape.
-                raw_posture = classify_posture(xyxy)
+                # Classify this specific cow as STANDING or DOWN. With Roboflow
+                # this looks up the cached prediction whose box best matches
+                # this YOLO box. With the aspect ratio classifier this just
+                # checks the shape of the box.
+                raw_posture = classifier.classify(xyxy)
 
                 # CowTracker smooths the per-frame classification across multiple
                 # frames (so a single bad detection doesn't toggle state) and
@@ -199,6 +196,7 @@ if __name__ == "__main__":
     parser.add_argument("--backend", default="http://localhost:5000", help="Flask backend URL")
     parser.add_argument("--fast", action="store_true", help="Process as fast as possible (skip real-time pacing)")
     parser.add_argument("--no-preview", action="store_true", help="Don't open the live preview window")
+    parser.add_argument("--roboflow-every", type=int, default=5, help="Call Roboflow every Nth frame (default 5; ignored if ROBOFLOW_API_KEY is unset)")
     args = parser.parse_args()
 
-    process_video(args.input, args.output, args.backend, fast=args.fast, preview=not args.no_preview)
+    process_video(args.input, args.output, args.backend, fast=args.fast, preview=not args.no_preview, roboflow_every=args.roboflow_every)

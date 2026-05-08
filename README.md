@@ -193,10 +193,26 @@ While processing, the script POSTs state updates to the Flask backend. When any 
 
 ---
 
-## Adjusting the Down-Cow Detection
+## Down-Cow Detection — Two Modes
 
-The current classifier is in `cv/process_video.py → classify_posture()`. It uses bounding-box aspect ratio: a lying cow's box is wider than tall (ratio > 1.4); a standing cow is taller than wide.
+The classifier lives in `cv/posture_classifier.py` and is selected by env var:
 
-This works well for standard camera angles. To replace it with a trained model, swap the body of `classify_posture()` — the rest of the pipeline is unchanged.
+### Roboflow hosted inference (recommended)
 
-Candidate dataset for fine-tuning: [cow & its posture detection (Roboflow Universe)](https://universe.roboflow.com/fyp-iovvt/cow---its-posture-detection) — 5,872 images with standing/lying labels.
+Uses the [cow-posture-detection](https://universe.roboflow.com/cow-posture-detection/cow-posture-detection) model on Roboflow Universe (`cow-posture-detection/3`). Classes: `lying_cow`, `standing_cow`.
+
+Setup:
+
+```bash
+export ROBOFLOW_API_KEY="your-private-api-key"
+```
+
+Get the key from your Roboflow account settings (free tier works). With the env var set, the CV script automatically uses Roboflow — full-frame inference every 5 frames, with results cached for the in-between frames. Each YOLO-tracked cow box is matched to a Roboflow prediction by highest IoU overlap.
+
+Tune the cadence with `--roboflow-every N` if needed (lower N = more API calls, higher latency, more responsive posture classification).
+
+### Aspect ratio heuristic (fallback)
+
+If `ROBOFLOW_API_KEY` is not set, the script falls back to a simple bounding-box shape heuristic: lying cows' boxes are wider than tall (ratio > 1.4); standing cows are taller than wide. No network calls. Works well for standard barn camera angles.
+
+The Roboflow classifier also falls back to this heuristic if a network call fails or no Roboflow box overlaps a YOLO box well enough — so the pipeline never crashes on a transient API issue.
