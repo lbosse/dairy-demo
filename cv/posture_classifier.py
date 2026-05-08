@@ -40,8 +40,12 @@ def _iou(a, b) -> float:
 
 class AspectRatioClassifier:
     """Standing cows are roughly portrait (h > w); lying cows are roughly
-    landscape (w > h). Threshold ~1.4 chosen for typical barn camera angles.
+    landscape (w > h, ratio ~2.0+). Threshold 1.8 chosen to avoid classifying
+    standing cows seen at slight angles (which can produce ratios near 1.4)
+    as DOWN.
     """
+
+    DOWN_RATIO_THRESHOLD = 1.8
 
     def update_frame(self, frame) -> bool:
         return False  # stateless
@@ -52,7 +56,7 @@ class AspectRatioClassifier:
         h = y2 - y1
         if h <= 0:
             return STANDING
-        return DOWN if (w / h) > 1.4 else STANDING
+        return DOWN if (w / h) > self.DOWN_RATIO_THRESHOLD else STANDING
 
 
 class RoboflowClassifier:
@@ -70,8 +74,8 @@ class RoboflowClassifier:
     quota and slows playback for no gain.
     """
 
-    URL_TEMPLATE = "https://detect.roboflow.com/{model_id}"
-    MODEL_ID = "cow-posture-detection/3"
+    URL_TEMPLATE = "https://serverless.roboflow.com/{model_id}"
+    MODEL_ID = "cow-posture-detection/2"
     DOWN_LABEL = "lying_cow"
     IOU_MATCH_THRESHOLD = 0.3  # below this, treat as no Roboflow match
 

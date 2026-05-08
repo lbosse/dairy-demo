@@ -18,7 +18,7 @@ CORS(app)
 
 # ── state ──────────────────────────────────────────────────────────────────────
 cow_states: dict[int, dict] = {}
-alert_threshold_sec: float = 300.0  # mobile app controls this
+alert_threshold_sec: float = 30.0  # mobile app controls this; 30s default for demo
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ def update_cow_state():
         "alerted": alerted,
     }
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "alerted": alerted})
 
 
 @app.route("/states", methods=["GET"])

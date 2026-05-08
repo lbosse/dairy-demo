@@ -190,6 +190,13 @@ While processing, the script POSTs state updates to the Flask backend. When any 
 | `--backend URL` | Flask backend URL (default `http://localhost:5000`) |
 | `--fast` | Process as fast as inference allows; skip real-time pacing |
 | `--no-preview` | Disable the live preview window (write-only mode) |
+| `--yolo-model PATH` | YOLO weights file (default `yolov8s.pt`; try `yolov8m.pt` or `yolov8l.pt` for accuracy at the cost of FPS) |
+| `--nms-iou FLOAT` | NMS IoU threshold (default 0.45; lower = keeps overlapping cows separate; raise toward 0.7 if you see duplicate boxes on one cow) |
+| `--imgsz INT` | YOLO input resolution / long side (default 1536; raise to 1920 for native 1080p detail, lower to 1280 or 640 for speed) |
+| `--no-fp16` | Disable FP16 (half-precision) inference. FP16 is on by default — ~1.5-2x faster on supported hardware. |
+| `--frame-skip N` | Run YOLO every Nth frame, reuse detections in between (default 2; pass `--frame-skip 1` for every frame) |
+| `--local-threshold SEC` | Visual ALERT SENT threshold in seconds when the backend is unreachable (default 30). When the backend is up, its threshold is the source of truth. |
+| `--roboflow-every N` | Call Roboflow every Nth frame (default 5; ignored if `ROBOFLOW_API_KEY` is unset) |
 
 ---
 
