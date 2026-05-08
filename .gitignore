@@ -15,7 +15,14 @@ node_modules/
 .env
 .env.local
 .env.*
-infra/firebase-sa-pk.json
+infra/firebase-*.json
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
 
 # Session handoff / local notes
 CONTEXT.md

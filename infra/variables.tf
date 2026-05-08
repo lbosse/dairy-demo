@@ -12,7 +12,7 @@ variable "gcp_region" {
 variable "aws_region" {
   description = "AWS region for SNS."
   type        = string
-  default     = "us-east-1"
+  default     = "us-west-2"
 }
 
 variable "fcm_service_account_json_path" {

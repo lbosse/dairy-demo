@@ -2,7 +2,7 @@
 # terraform.tfvars is gitignored — never commit real credentials.
 
 gcp_project_id = "my-dairy-demo-12345"   # your GCP project ID
-aws_region     = "us-east-1"
+aws_region     = "us-west-2"
 
 # Leave empty on first apply. Fill in after downloading the service account JSON from:
 #   Firebase console → Project Settings → Service accounts → Generate new private key

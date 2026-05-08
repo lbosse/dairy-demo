@@ -1,6 +1,14 @@
 terraform {
   required_version = ">= 1.6"
 
+  backend "s3" {
+    bucket         = "dairy-demo-tfstate-381790626519-usw2"
+    key            = "infra/terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "dairy-demo-tfstate-lock"
+    encrypt        = true
+  }
+
   required_providers {
     google = {
       source  = "hashicorp/google"
