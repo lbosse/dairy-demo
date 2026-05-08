@@ -33,10 +33,16 @@ dairy-demo/
 
 ### 1. Python dependencies
 
+Set up a virtual environment (one time) and install the dependencies into it:
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r cv/requirements.txt
 pip install -r backend/requirements.txt
 ```
+
+Activate the venv (`source .venv/bin/activate`) in any new terminal before running Python scripts.
 
 ### 2. Infrastructure (Terraform)
 
@@ -173,9 +179,17 @@ cd cv
 python3 process_video.py input.mp4 output_annotated.mp4
 ```
 
-While processing, the script POSTs state updates to the Flask backend. When any cow exceeds the threshold, a push notification fires. When done, `output_annotated.mp4` has bounding boxes and down-timers drawn on every frame.
+A preview window opens and plays the annotated video at the source framerate as frames are processed. Press `q` in the window to stop early. Each frame is also written to `output_annotated.mp4`.
 
-The backend URL defaults to `http://localhost:5000`. Override with `--backend http://other-ip:5000` if running the backend elsewhere.
+While processing, the script POSTs state updates to the Flask backend. When any cow exceeds the threshold, a push notification fires.
+
+**Flags:**
+
+| Flag | Effect |
+|---|---|
+| `--backend URL` | Flask backend URL (default `http://localhost:5000`) |
+| `--fast` | Process as fast as inference allows; skip real-time pacing |
+| `--no-preview` | Disable the live preview window (write-only mode) |
 
 ---
 

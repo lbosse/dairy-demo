@@ -73,7 +73,7 @@ def post_cow_state(backend_url: str, cow_id: int, posture: str, down_sec: float)
         pass  # never block video processing on network latency
 
 
-def process_video(input_path: str, output_path: str, backend_url: str):
+def process_video(input_path: str, output_path: str, backend_url: str, fast: bool = False, preview: bool = True):
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device: {device}")
 
@@ -95,7 +95,16 @@ def process_video(input_path: str, output_path: str, backend_url: str):
     tracker = CowTracker()
     frame_num = 0
 
-    print(f"Processing {total} frames ({width}x{height} @ {fps:.1f}fps)...")
+    # Real-time pacing matches source FPS so the demo plays at natural speed.
+    # --fast pumps the GUI at 1ms (process as quickly as inference allows).
+    wait_ms = 1 if fast else max(1, int(1000 / fps))
+
+    if preview:
+        cv2.namedWindow("Dairy Monitor — Down Cow Detection", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Dairy Monitor — Down Cow Detection", min(width, 1280), min(height, 720))
+
+    mode = "fast" if fast else "real-time"
+    print(f"Processing {total} frames ({width}x{height} @ {fps:.1f}fps, {mode}). Press 'q' in the preview window to stop.")
 
     while True:
         ret, frame = cap.read()
@@ -104,6 +113,14 @@ def process_video(input_path: str, output_path: str, backend_url: str):
 
         now = time.time()
 
+        # Run detection + ByteTrack. ByteTrack assigns each cow a stable track_id
+        # that persists across frames, so per-cow down-duration in CowTracker stays
+        # pinned to the right cow even as it moves around the frame. Without this,
+        # every frame would look like fresh, unrelated detections and we'd never be
+        # able to measure how long a specific cow has been down.
+        # persist=True maintains ByteTrack's internal state between calls.
+        # boxes_result.id may be None on early frames while ByteTrack is still
+        # confirming initial detections.
         results = model.track(
             frame,
             persist=True,
@@ -112,26 +129,57 @@ def process_video(input_path: str, output_path: str, backend_url: str):
             verbose=False,
         )
 
+        # Ultralytics returns a list of Results, one per input image. We process
+        # one frame at a time, so always look at results[0]. .boxes holds the
+        # detected bounding boxes + their attributes (coords, class, track_id).
         boxes_result = results[0].boxes
         if boxes_result is not None and boxes_result.id is not None:
+            # PyTorch keeps tensors on the inference device (MPS on M2). .cpu()
+            # copies them back to system memory, .numpy() converts them to a
+            # numpy array so we can iterate in plain Python.
+            #
+            # xyxy is the bounding-box format YOLO returns:
+            #   [x_top_left, y_top_left, x_bottom_right, y_bottom_right]
+            # i.e. the pixel coordinates of two diagonal corners of the box.
             xyxys = boxes_result.xyxy.cpu().numpy()
             ids = boxes_result.id.cpu().numpy().astype(int)
 
+            # One iteration per detected cow in this frame.
             for xyxy, track_id in zip(xyxys, ids):
+                # Classify this specific cow as STANDING or DOWN from its box shape.
                 raw_posture = classify_posture(xyxy)
+
+                # CowTracker smooths the per-frame classification across multiple
+                # frames (so a single bad detection doesn't toggle state) and
+                # returns how long this cow has been DOWN in seconds. 0 means
+                # the cow is standing, or DOWN hasn't been confirmed yet.
                 down_sec = tracker.update(int(track_id), raw_posture, now)
                 alerted = tracker.was_alerted(int(track_id))
 
+                # Report state to Flask. The backend owns the alert threshold
+                # logic and decides when to actually fire a push notification —
+                # this CV script is just a reporter.
                 post_cow_state(backend_url, int(track_id), tracker._states[int(track_id)].posture, down_sec)
 
-                # mark alerted locally after posting (backend drives the actual alert)
+                # Local-only flag, used to color the preview box amber once a
+                # cow has been counted as down. The Flask backend has its own
+                # de-dupe so it won't send duplicate push notifications.
                 if down_sec > 0:
-                    tracker.mark_alerted(int(track_id))  # backend handles de-dupe; this just colors the box
+                    tracker.mark_alerted(int(track_id))
 
+                # Draw the bounding box + label (cow ID, posture, timer, alert
+                # status) onto the frame in place. This is what gets displayed
+                # in the preview window and written to the output video.
                 draw_annotation(frame, xyxy, int(track_id), tracker._states[int(track_id)].posture, down_sec, alerted)
 
         out.write(frame)
         frame_num += 1
+
+        if preview:
+            cv2.imshow("Dairy Monitor — Down Cow Detection", frame)
+            if (cv2.waitKey(wait_ms) & 0xFF) == ord("q"):
+                print("Stopped by user.")
+                break
 
         if frame_num % 60 == 0:
             pct = (frame_num / total * 100) if total > 0 else 0
@@ -139,6 +187,8 @@ def process_video(input_path: str, output_path: str, backend_url: str):
 
     cap.release()
     out.release()
+    if preview:
+        cv2.destroyAllWindows()
     print(f"\nDone. Output: {output_path}")
 
 
@@ -147,6 +197,8 @@ if __name__ == "__main__":
     parser.add_argument("input", help="Input video file path")
     parser.add_argument("output", help="Output annotated video path")
     parser.add_argument("--backend", default="http://localhost:5000", help="Flask backend URL")
+    parser.add_argument("--fast", action="store_true", help="Process as fast as possible (skip real-time pacing)")
+    parser.add_argument("--no-preview", action="store_true", help="Don't open the live preview window")
     args = parser.parse_args()
 
-    process_video(args.input, args.output, args.backend)
+    process_video(args.input, args.output, args.backend, fast=args.fast, preview=not args.no_preview)

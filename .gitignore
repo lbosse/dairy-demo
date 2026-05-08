@@ -23,3 +23,9 @@ CONTEXT.md
 # Editors
 .vscode/
 .idea/
+
+# Test data
+test-videos/
+
+# YOLO weights (auto-downloaded by Ultralytics on first run)
+*.pt
