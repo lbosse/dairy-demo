@@ -60,11 +60,18 @@ This writes `mobile/google-services.json` automatically.
 
 **Step 2 — SNS Platform Application**
 
+AWS SNS uses FCM HTTP v1 (token-based auth) which requires a Firebase service account private key, not the legacy Server key.
+
 After step 1 completes:
 
-1. Go to [Firebase console](https://console.firebase.google.com) → **Project Settings → Cloud Messaging** → copy the **Server key**
-2. Add it to `terraform.tfvars` as `fcm_server_key = "..."`
-3. Run `terraform apply` again
+1. Go to [Firebase console](https://console.firebase.google.com) → **Project Settings → Service accounts** tab
+2. Click **Generate new private key** → download the JSON file
+3. Save it **outside the repo** — it's a secret credential
+4. Add the path to `terraform.tfvars`:
+   ```
+   fcm_service_account_json_path = "/path/to/service-account.json"
+   ```
+5. Run `terraform apply` again
 
 ### 3. Backend environment variables
 

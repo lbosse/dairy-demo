@@ -4,6 +4,7 @@
 gcp_project_id = "my-dairy-demo-12345"   # your GCP project ID
 aws_region     = "us-east-1"
 
-# Leave empty on first apply. Fill in after retrieving the key from Firebase console.
-# Firebase console → Project Settings → Cloud Messaging → Server key
-fcm_server_key = ""
+# Leave empty on first apply. Fill in after downloading the service account JSON from:
+#   Firebase console → Project Settings → Service accounts → Generate new private key
+# Set this to the path of the downloaded JSON file (absolute path recommended).
+fcm_service_account_json_path = ""

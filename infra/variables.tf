@@ -15,15 +15,14 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "fcm_server_key" {
+variable "fcm_service_account_json_path" {
   description = <<-EOT
-    Firebase Cloud Messaging Server key.
+    Path to the Firebase service account private key JSON file.
     Leave empty ("") on first apply — Firebase resources will be created and google-services.json
-    will be written to mobile/. Then retrieve the key from:
-      Firebase console → Project Settings → Cloud Messaging → Server key
-    Add it to terraform.tfvars and run terraform apply again to create the SNS Platform Application.
+    will be written to mobile/. Then retrieve the file from:
+      Firebase console → Project Settings → Service accounts → Generate new private key
+    Set this to the path of the downloaded JSON file and run terraform apply again.
   EOT
-  type      = string
-  default   = ""
-  sensitive = true
+  type    = string
+  default = ""
 }

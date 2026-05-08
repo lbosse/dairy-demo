@@ -30,8 +30,8 @@ output "sns_platform_application_arn" {
 
 output "next_step" {
   value = (
-    var.fcm_server_key == ""
-    ? "Step 2: Firebase console → Project Settings → Cloud Messaging → copy Server key → add fcm_server_key to terraform.tfvars → run terraform apply"
+    var.fcm_service_account_json_path == ""
+    ? "Step 2: Firebase console → Project Settings → Service accounts → Generate new private key → download JSON → set fcm_service_account_json_path in terraform.tfvars → run terraform apply"
     : "All done. Export SNS_PLATFORM_APP_ARN from the sns_platform_application_arn output."
   )
   description = "What to do next"

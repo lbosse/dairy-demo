@@ -81,15 +81,17 @@ resource "local_file" "google_services_json" {
 
 # ── AWS SNS Platform Application ─────────────────────────────────────────────
 #
-# Skipped on the first apply (when fcm_server_key is empty string).
+# Skipped on the first apply (when fcm_service_account_json_path is empty).
 #
 # After step 1 completes:
-#   Firebase console → Project Settings → Cloud Messaging → copy Server key
-#   Add it to terraform.tfvars, then run: terraform apply
+#   Firebase console → Project Settings → Service accounts → Generate new private key
+#   Set fcm_service_account_json_path in terraform.tfvars to the path of that file
+#   Then run: terraform apply
 #
 resource "aws_sns_platform_application" "dairy_demo_android" {
-  count               = var.fcm_server_key != "" ? 1 : 0
+  count               = var.fcm_service_account_json_path != "" ? 1 : 0
   name                = "dairy-demo-android"
   platform            = "GCM"
-  platform_credential = var.fcm_server_key
+  platform_credential = file(var.fcm_service_account_json_path)
+  platform_principal  = "token"
 }

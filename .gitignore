@@ -15,6 +15,7 @@ node_modules/
 .env
 .env.local
 .env.*
+infra/firebase-sa-pk.json
 
 # Session handoff / local notes
 CONTEXT.md
